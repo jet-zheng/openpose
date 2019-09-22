@@ -30,8 +30,7 @@ if [[ $WITH_CUDA == true ]] ; then
   ARGS="$ARGS -DGPU_MODE=CUDA -DCUDA_ARCH=Manual -DCUDA_ARCH_BIN=\"52\" -DCUDA_ARCH_PTX=\"\""
 # OpenCL version
 elif [[ $WITH_OPEN_CL == true ]] ; then
-  echo "OpenCL version not implemented for Travis Build yet."
-  exit 99
+  ARGS="$ARGS -DGPU_MODE=OPENCL"
 # CPU version
 else
   ARGS="$ARGS -DGPU_MODE=CPU_ONLY"
@@ -50,6 +49,11 @@ else
   ARGS="$ARGS -DUSE_CUDNN=Off"
 fi
 
+echo "WITH_UNITY = ${WITH_UNITY}."
+if [[ $WITH_UNITY == true ]] ; then
+  ARGS="$ARGS -DBUILD_UNITY_SUPPORT=On"
+fi
+
 echo "WITH_DEBUG = ${WITH_DEBUG}."
 if [[ $WITH_DEBUG == true ]] ; then
   ARGS="$ARGS -DCMAKE_BUILD_TYPE=Debug"
@@ -58,6 +62,12 @@ fi
 echo "ARGS = ${ARGS}."
 
 cmake .. $ARGS
+
+# Patch for OpenCL and OSX
+if [[ $WITH_OPEN_CL == true && $TRAVIS_OS_NAME == "osx" ]] ; then
+  cd ../3rdparty/caffe; git apply ../../scripts/osx/mac_opencl_patch.txt;
+  cd ../../build;
+fi
 
 # Run Cmake twice for pybind to register
 if [[ $WITH_PYTHON == true ]] ; then

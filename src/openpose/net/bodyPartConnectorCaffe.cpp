@@ -3,6 +3,7 @@
 #endif
 #ifdef USE_CUDA
     #include <openpose/gpu/cuda.hpp>
+    #include <openpose/gpu/cuda.hu>
 #endif
 #ifdef USE_OPENCL
     #include <openpose/gpu/opencl.hcl>
@@ -41,19 +42,33 @@ namespace op
         try
         {
             #if defined USE_CAFFE && defined USE_CUDA
-                cudaFree(pBodyPartPairsGpuPtr);
-                cudaFree(pMapIdxGpuPtr);
-                cudaFree(pFinalOutputGpuPtr);
+                cudaCheck(__LINE__, __FUNCTION__, __FILE__);
+                if (pBodyPartPairsGpuPtr != nullptr)
+                {
+                    cudaFree(pBodyPartPairsGpuPtr);
+                    pBodyPartPairsGpuPtr = nullptr;
+                }
+                if (pMapIdxGpuPtr != nullptr)
+                {
+                    cudaFree(pMapIdxGpuPtr);
+                    pMapIdxGpuPtr = nullptr;
+                }
+                if (pFinalOutputGpuPtr != nullptr)
+                {
+                    cudaFree(pFinalOutputGpuPtr);
+                    pFinalOutputGpuPtr = nullptr;
+                }
+                cudaCheck(__LINE__, __FUNCTION__, __FILE__);
             #endif
         }
         catch (const std::exception& e)
         {
-            error(e.what(), __LINE__, __FUNCTION__, __FILE__);
+            errorDestructor(e.what(), __LINE__, __FUNCTION__, __FILE__);
         }
     }
 
     template <typename T>
-    void BodyPartConnectorCaffe<T>::Reshape(const std::vector<caffe::Blob<T>*>& bottom, const int gpuID)
+    void BodyPartConnectorCaffe<T>::Reshape(const std::vector<ArrayCpuGpu<T>*>& bottom, const int gpuID)
     {
         try
         {
@@ -73,6 +88,7 @@ namespace op
                 mGpuID = gpuID;
             #else
                 UNUSED(bottom);
+                UNUSED(gpuID);
             #endif
         }
         catch (const std::exception& e)
@@ -100,6 +116,19 @@ namespace op
         try
         {
             mMaximizePositives = {maximizePositives};
+        }
+        catch (const std::exception& e)
+        {
+            error(e.what(), __LINE__, __FUNCTION__, __FILE__);
+        }
+    }
+
+    template <typename T>
+    void BodyPartConnectorCaffe<T>::setDefaultNmsThreshold(const T defaultNmsThreshold)
+    {
+        try
+        {
+            mDefaultNmsThreshold = {defaultNmsThreshold};
         }
         catch (const std::exception& e)
         {
@@ -173,7 +202,7 @@ namespace op
     }
 
     template <typename T>
-    void BodyPartConnectorCaffe<T>::Forward(const std::vector<caffe::Blob<T>*>& bottom, Array<T>& poseKeypoints,
+    void BodyPartConnectorCaffe<T>::Forward(const std::vector<ArrayCpuGpu<T>*>& bottom, Array<T>& poseKeypoints,
                                             Array<T>& poseScores)
     {
         try
@@ -196,23 +225,25 @@ namespace op
     }
 
     template <typename T>
-    void BodyPartConnectorCaffe<T>::Forward_cpu(const std::vector<caffe::Blob<T>*>& bottom, Array<T>& poseKeypoints,
-                                                Array<T>& poseScores)
+    void BodyPartConnectorCaffe<T>::Forward_cpu(
+        const std::vector<ArrayCpuGpu<T>*>& bottom, Array<T>& poseKeypoints, Array<T>& poseScores)
     {
         try
         {
             #ifdef USE_CAFFE
                 const auto heatMapsBlob = bottom.at(0);
-                const auto* const heatMapsPtr = heatMapsBlob->cpu_data();                 // ~8.5 ms COCO, ~27ms BODY_65
+                const auto* const heatMapsPtr = heatMapsBlob->cpu_data();                 // ~8.5 ms COCO, ~35ms BODY_135
                 const auto* const peaksPtr = bottom.at(1)->cpu_data();                    // ~0.02ms
                 const auto maxPeaks = mTopSize[1];
-                connectBodyPartsCpu(poseKeypoints, poseScores, heatMapsPtr, peaksPtr, mPoseModel,
-                                    Point<int>{heatMapsBlob->shape(3), heatMapsBlob->shape(2)},
-                                    maxPeaks, mInterMinAboveThreshold, mInterThreshold,
-                                    mMinSubsetCnt, mMinSubsetScore, mScaleNetToOutput, mMaximizePositives);
+                connectBodyPartsCpu(
+                    poseKeypoints, poseScores, heatMapsPtr, peaksPtr, mPoseModel,
+                    Point<int>{heatMapsBlob->shape(3), heatMapsBlob->shape(2)}, maxPeaks, mInterMinAboveThreshold,
+                    mInterThreshold, mMinSubsetCnt, mMinSubsetScore, mDefaultNmsThreshold, mScaleNetToOutput,
+                    mMaximizePositives);
             #else
                 UNUSED(bottom);
                 UNUSED(poseKeypoints);
+                UNUSED(poseScores);
             #endif
         }
         catch (const std::exception& e)
@@ -222,8 +253,8 @@ namespace op
     }
 
     template <typename T>
-    void BodyPartConnectorCaffe<T>::Forward_ocl(const std::vector<caffe::Blob<T>*>& bottom, Array<T>& poseKeypoints,
-                                                Array<T>& poseScores)
+    void BodyPartConnectorCaffe<T>::Forward_ocl(
+        const std::vector<ArrayCpuGpu<T>*>& bottom, Array<T>& poseKeypoints, Array<T>& poseScores)
     {
         try
         {
@@ -277,12 +308,12 @@ namespace op
                 }
 
                 // Run body part connector
-                connectBodyPartsOcl(poseKeypoints, poseScores, heatMapsGpuPtr, peaksPtr, mPoseModel,
-                                    Point<int>{heatMapsBlob->shape(3), heatMapsBlob->shape(2)},
-                                    maxPeaks, mInterMinAboveThreshold, mInterThreshold,
-                                    mMinSubsetCnt, mMinSubsetScore, mScaleNetToOutput, mMaximizePositives,
-                                    mFinalOutputCpu, pFinalOutputGpuPtr, pBodyPartPairsGpuPtr, pMapIdxGpuPtr,
-                                    peaksGpuPtr, mGpuID);
+                connectBodyPartsOcl(
+                    poseKeypoints, poseScores, heatMapsGpuPtr, peaksPtr, mPoseModel,
+                    Point<int>{heatMapsBlob->shape(3), heatMapsBlob->shape(2)}, maxPeaks, mInterMinAboveThreshold,
+                    mInterThreshold, mMinSubsetCnt, mMinSubsetScore, mDefaultNmsThreshold, mScaleNetToOutput,
+                    mMaximizePositives, mFinalOutputCpu, pFinalOutputGpuPtr, pBodyPartPairsGpuPtr, pMapIdxGpuPtr,
+                    peaksGpuPtr, mGpuID);
             #else
                 UNUSED(bottom);
                 UNUSED(poseKeypoints);
@@ -298,8 +329,8 @@ namespace op
     }
 
     template <typename T>
-    void BodyPartConnectorCaffe<T>::Forward_gpu(const std::vector<caffe::Blob<T>*>& bottom, Array<T>& poseKeypoints,
-                                                Array<T>& poseScores)
+    void BodyPartConnectorCaffe<T>::Forward_gpu(
+        const std::vector<ArrayCpuGpu<T>*>& bottom, Array<T>& poseKeypoints, Array<T>& poseScores)
     {
         try
         {
@@ -352,12 +383,12 @@ namespace op
                 }
 
                 // Run body part connector
-                connectBodyPartsGpu(poseKeypoints, poseScores, heatMapsGpuPtr, peaksPtr, mPoseModel,
-                                    Point<int>{heatMapsBlob->shape(3), heatMapsBlob->shape(2)},
-                                    maxPeaks, mInterMinAboveThreshold, mInterThreshold,
-                                    mMinSubsetCnt, mMinSubsetScore, mScaleNetToOutput, mMaximizePositives,
-                                    mFinalOutputCpu, pFinalOutputGpuPtr, pBodyPartPairsGpuPtr, pMapIdxGpuPtr,
-                                    peaksGpuPtr);
+                connectBodyPartsGpu(
+                    poseKeypoints, poseScores, heatMapsGpuPtr, peaksPtr, mPoseModel,
+                    Point<int>{heatMapsBlob->shape(3), heatMapsBlob->shape(2)}, maxPeaks, mInterMinAboveThreshold,
+                    mInterThreshold, mMinSubsetCnt, mMinSubsetScore, mDefaultNmsThreshold, mScaleNetToOutput,
+                    mMaximizePositives, mFinalOutputCpu, pFinalOutputGpuPtr, pBodyPartPairsGpuPtr, pMapIdxGpuPtr,
+                    peaksGpuPtr);
             #else
                 UNUSED(bottom);
                 UNUSED(poseKeypoints);
@@ -373,9 +404,9 @@ namespace op
     }
 
     template <typename T>
-    void BodyPartConnectorCaffe<T>::Backward_cpu(const std::vector<caffe::Blob<T>*>& top,
+    void BodyPartConnectorCaffe<T>::Backward_cpu(const std::vector<ArrayCpuGpu<T>*>& top,
                                                  const std::vector<bool>& propagate_down,
-                                                 const std::vector<caffe::Blob<T>*>& bottom)
+                                                 const std::vector<ArrayCpuGpu<T>*>& bottom)
     {
         try
         {
@@ -393,9 +424,9 @@ namespace op
     }
 
     template <typename T>
-    void BodyPartConnectorCaffe<T>::Backward_gpu(const std::vector<caffe::Blob<T>*>& top,
+    void BodyPartConnectorCaffe<T>::Backward_gpu(const std::vector<ArrayCpuGpu<T>*>& top,
                                                  const std::vector<bool>& propagate_down,
-                                                 const std::vector<caffe::Blob<T>*>& bottom)
+                                                 const std::vector<ArrayCpuGpu<T>*>& bottom)
     {
         try
         {

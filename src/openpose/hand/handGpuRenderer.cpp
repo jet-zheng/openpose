@@ -10,7 +10,11 @@ namespace op
 {
     HandGpuRenderer::HandGpuRenderer(const float renderThreshold, const float alphaKeypoint,
                                      const float alphaHeatMap) :
-        GpuRenderer{renderThreshold, alphaKeypoint, alphaHeatMap}
+        GpuRenderer{renderThreshold, alphaKeypoint, alphaHeatMap},
+        pGpuHand{nullptr},
+        pMaxPtr{nullptr},
+        pMinPtr{nullptr},
+        pScalePtr{nullptr}
     {
     }
 
@@ -20,12 +24,33 @@ namespace op
         {
             // Free CUDA pointers - Note that if pointers are 0 (i.e., nullptr), no operation is performed.
             #ifdef USE_CUDA
-                cudaFree(pGpuHand);
+                cudaCheck(__LINE__, __FUNCTION__, __FILE__);
+                if (pGpuHand != nullptr)
+                {
+                    cudaFree(pGpuHand);
+                    pGpuHand = nullptr;
+                }
+                if (pMaxPtr != nullptr)
+                {
+                    cudaFree(pMaxPtr);
+                    pMaxPtr = nullptr;
+                }
+                if (pMinPtr != nullptr)
+                {
+                    cudaFree(pMinPtr);
+                    pMinPtr = nullptr;
+                }
+                if (pScalePtr != nullptr)
+                {
+                    cudaFree(pScalePtr);
+                    pScalePtr = nullptr;
+                }
+                cudaCheck(__LINE__, __FUNCTION__, __FILE__);
             #endif
         }
         catch (const std::exception& e)
         {
-            error(e.what(), __LINE__, __FUNCTION__, __FILE__);
+            errorDestructor(e.what(), __LINE__, __FUNCTION__, __FILE__);
         }
     }
 
@@ -37,6 +62,9 @@ namespace op
             // GPU memory allocation for rendering
             #ifdef USE_CUDA
                 cudaMalloc((void**)(&pGpuHand), HAND_MAX_HANDS * HAND_NUMBER_PARTS * 3 * sizeof(float));
+                cudaMalloc((void**)&pMaxPtr, sizeof(float) * 2 * HAND_MAX_HANDS);
+                cudaMalloc((void**)&pMinPtr, sizeof(float) * 2 * HAND_MAX_HANDS);
+                cudaMalloc((void**)&pScalePtr, sizeof(float) * HAND_MAX_HANDS);
             #endif
             log("Finished initialization on thread.", Priority::Low, __LINE__, __FUNCTION__, __FILE__);
         }
@@ -68,7 +96,9 @@ namespace op
                                cudaMemcpyHostToDevice);
                     cudaMemcpy(pGpuHand + handVolume, handKeypoints[1].getConstPtr(),
                                handVolume * sizeof(float), cudaMemcpyHostToDevice);
-                    renderHandKeypointsGpu(*spGpuMemory, frameSize, pGpuHand, 2 * numberPeople, mRenderThreshold);
+                    renderHandKeypointsGpu(
+                        *spGpuMemory, pMaxPtr, pMinPtr, pScalePtr, frameSize, pGpuHand, 2 * numberPeople,
+                        mRenderThreshold, getAlphaKeypoint());
                     // CUDA check
                     cudaCheck(__LINE__, __FUNCTION__, __FILE__);
                 }

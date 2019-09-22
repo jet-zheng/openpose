@@ -54,7 +54,8 @@ namespace op
 
         /**
          * Rendering threshold. Only estimated keypoints whose score confidences are higher than this value will be
-         * rendered. Generally, a high threshold (> 0.5) will only render very clear body parts; while small thresholds
+         * rendered. Note: Rendered refers only to visual display in the OpenPose basic GUI, not in the saved results.
+         * Generally, a high threshold (> 0.5) will only render very clear body parts; while small thresholds
          * (~0.1) will also output guessed and occluded keypoints, but also more false positives (i.e., wrong
          * detections).
          */
@@ -67,7 +68,7 @@ namespace op
          */
         WrapperStructFace(
             const bool enable = false, const Detector detector = Detector::Body,
-            const Point<int>& netInputSize = Point<int>{368, 368}, const RenderMode renderMode = RenderMode::Gpu,
+            const Point<int>& netInputSize = Point<int>{368, 368}, const RenderMode renderMode = RenderMode::Auto,
             const float alphaKeypoint = FACE_DEFAULT_ALPHA_KEYPOINT,
             const float alphaHeatMap = FACE_DEFAULT_ALPHA_HEAT_MAP, const float renderThreshold = 0.4f);
     };

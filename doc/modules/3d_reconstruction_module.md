@@ -23,13 +23,13 @@ This module performs 3-D keypoint (body, face, and hand) reconstruction and rend
 
 
 ## Installation
-Check [doc/installation.md#3d-reconstruction-module](./installation.md#3d-reconstruction-module) for installation steps.
+Check [doc/installation.md#3d-reconstruction-module](../installation.md#3d-reconstruction-module) for installation steps.
 
 
 
 
 ## Non Linear Optimization
-In order to increase the 3-D reconstruction accuracy, OpenPose optionally performs non-linear optimization if Ceres solver support is enabled (only available in Ubuntu for now). To enable it, check [doc/installation.md#3d-reconstruction-module](./installation.md#3d-reconstruction-module) for more details.
+In order to increase the 3-D reconstruction accuracy, OpenPose optionally performs non-linear optimization if Ceres solver support is enabled (only available in Ubuntu for now). To enable it, check [doc/installation.md#3d-reconstruction-module](../installation.md#3d-reconstruction-module) for more details.
 
 
 
@@ -69,12 +69,12 @@ This demo assumes n arbitrary stereo cameras from the FLIR company (formerly Poi
 The user must manually get the intrinsic and extrinsic parameters of the stereo-cameras. Note, we will assume `Flir` cameras, which is specified by default with the flag `--camera_parameter_path "models/cameraParameters/flir/"`. Otherwise, change the path to your camera name accordingly.
 
 There are 2 alternatives to calibrate the cameras:
-
-1. Using the [OpenPose calibration toolbox](./modules/calibration_module.md#).
+1. Using the [OpenPose calibration toolbox](./calibration_module.md#).
 2. Using your own calibration toolbox (or if you already know the camera parameters of your cameras):
     1. Create a xml file for each camera named as `models/cameraParameters/flir/{camera_serial_number}.xml`.
     2. The elements inside each xml file are the extrinsic parameters of the camera (`CameraMatrix`), the intrinsic parameters (`Intrinsics`), and the distortion coefficients (`Distortion`). Copy the format from `models/cameraParameters/flir/17012332.xml.example`. For the extrinsic parameters of the camera, it allows you to set the coordinate origin (so that 3-d keypoints are distances with respect to that origin).
         - E.g., in order to set the camera 1 as the coordinate center, set its `CameraMatrix` as the identity matrix of size 3x4, and the `CameraMatrix` of the other cameras as the camera extrinsic parameters of from those cameras with respect to the main camera `M_1_i`.
+        - **VERY IMPORTANT: The intrinsic camera matrix should be an upper triangular matrix.**
     3. The program can use any arbitrary number of cameras. Even if lots of cameras are added in `models/cameraParameters/flir/`, the program will check at runtime which FLIR cameras are detected and simply read those camera parameters. If the file corresponding to any of the cameras detected at runtime is not found, OpenPose will return an error.
     4. In the example XML, OpenPose uses the 8-distortion-parameter version of OpenCV. The distortion parameters are internally used by the OpenCV function [undistort()](http://docs.opencv.org/3.2.0/da/d54/group__imgproc__transform.html#ga69f2545a8b62a6b0fc2ee060dc30559d) to rectify the images. Therefore, this function can take either 4-, 5- or 8-parameter distortion coefficients (OpenCV 3.X also adds a 12- and 14-parameter alternatives). Therefore, either version (4, 5, 8, 12 or 14) will work in 3D OpenPose.
 
@@ -100,7 +100,7 @@ The visual GUI should show 3 screens.
 It should be similar to the following image.
 
 <p align="center">
-    <img src="media/openpose3d.png">
+    <img src="../media/openpose3d.gif">
 </p>
 
 
@@ -109,7 +109,7 @@ It should be similar to the following image.
 You can copy and modify the OpenPose 3-D demo to use any camera brand by:
 
 1. You can optionally turn off the `WITH_FLIR_CAMERA` while compiling CMake.
-2. Copy `examples/tutorial_api_cpp/7_synchronous_custom_input.cpp` (or 9_synchronous_custom_all.cpp).
+2. Copy `examples/tutorial_api_cpp/13_synchronous_custom_input.cpp` (or `17_synchronous_custom_all_and_datum.cpp`).
 3. Modify `WUserInput` and add your custom code there. Your code should fill `Datum::name`, `Datum::cameraMatrix`, `Datum::cvInputData`, and `Datum::cvOutputData` (fill cvOutputData = cvInputData).
 4. Remove `WUserPostProcessing` and `WUserOutput` (unless you want to have your custom post-processing and/or output).
 

@@ -6,6 +6,7 @@
 #include <openpose/pose/enumClasses.hpp>
 #include <openpose/pose/poseParameters.hpp>
 #include <openpose/pose/poseParametersRender.hpp>
+#include <openpose/wrapper/enumClasses.hpp>
 
 namespace op
 {
@@ -18,10 +19,10 @@ namespace op
     {
         /**
          * Whether to extract body.
-         * It might be optionally disabled if only face keypoint detection is required. Otherwise, it must be always
-         * true.
+         * It might be optionally disabled for very few cases (e.g., if only face keypoint detection is desired for
+         * speedup while reducing its accuracy). Otherwise, it must be always enabled.
          */
-        bool enable;
+        PoseMode poseMode;
 
         /**
          * CCN (Conv Net) input size.
@@ -142,7 +143,8 @@ namespace op
 
         /**
          * Rendering threshold. Only estimated keypoints whose score confidences are higher than this value will be
-         * rendered. Generally, a high threshold (> 0.5) will only render very clear body parts; while small thresholds
+         * rendered. Note: Rendered refers only to visual display in the OpenPose basic GUI, not in the saved results.
+         * Generally, a high threshold (> 0.5) will only render very clear body parts; while small thresholds
          * (~0.1) will also output guessed and occluded keypoints, but also more false positives (i.e., wrong
          * detections).
          */
@@ -188,6 +190,12 @@ namespace op
         std::string caffeModelPath;
 
         /**
+         * The image upsampling scale. 8 is the stride of the network, so the ideal value to maximize the
+         * speed/accuracy trade-off.
+         */
+        float upsamplingRatio;
+
+        /**
          * Whether to internally enable Google Logging.
          * This option is only applicable if Caffe is used.
          * Only disable it if the user is already calling google::InitGoogleLogging() in his code.
@@ -202,18 +210,18 @@ namespace op
          * Since all the elements of the struct are public, they can also be manually filled.
          */
         WrapperStructPose(
-            const bool enable = true, const Point<int>& netInputSize = Point<int>{656, 368},
+            const PoseMode poseMode = PoseMode::Enabled, const Point<int>& netInputSize = Point<int>{-1, 368},
             const Point<int>& outputSize = Point<int>{-1, -1},
             const ScaleMode keypointScaleMode = ScaleMode::InputResolution, const int gpuNumber = -1,
-            const int gpuNumberStart = 0, const int scalesNumber = 1, const float scaleGap = 0.15f,
-            const RenderMode renderMode = RenderMode::Gpu, const PoseModel poseModel = PoseModel::BODY_25,
+            const int gpuNumberStart = 0, const int scalesNumber = 1, const float scaleGap = 0.25f,
+            const RenderMode renderMode = RenderMode::Auto, const PoseModel poseModel = PoseModel::BODY_25,
             const bool blendOriginalFrame = true, const float alphaKeypoint = POSE_DEFAULT_ALPHA_KEYPOINT,
             const float alphaHeatMap = POSE_DEFAULT_ALPHA_HEAT_MAP, const int defaultPartToRender = 0,
             const std::string& modelFolder = "models/", const std::vector<HeatMapType>& heatMapTypes = {},
-            const ScaleMode heatMapScaleMode = ScaleMode::ZeroToOne, const bool addPartCandidates = false,
+            const ScaleMode heatMapScaleMode = ScaleMode::UnsignedChar, const bool addPartCandidates = false,
             const float renderThreshold = 0.05f, const int numberPeopleMax = -1, const bool maximizePositives = false,
-            const double fpsMax = -1., const std::string& protoTxtPath = "",
-            const std::string& caffeModelPath = "", const bool enableGoogleLogging = true);
+            const double fpsMax = -1., const std::string& protoTxtPath = "", const std::string& caffeModelPath = "",
+            const float upsamplingRatio = 0.f, const bool enableGoogleLogging = true);
     };
 }
 

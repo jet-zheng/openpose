@@ -89,10 +89,13 @@ DEFINE_double(fps_max,                  -1.,            "Maximum processing fram
                                                         " possible. Example usage: If OpenPose is displaying images too quickly, this can reduce"
                                                         " the speed so the user can analyze better each frame from the GUI.");
 // OpenPose Body Pose
-DEFINE_bool(body_disable,               false,          "Disable body keypoint detection. Option only possible for faster (but less accurate) face"
-                                                        " keypoint detection.");
-DEFINE_string(model_pose,               "BODY_25",      "Model to be used. E.g., `COCO` (18 keypoints), `MPI` (15 keypoints, ~10% faster), "
-                                                        "`MPI_4_layers` (15 keypoints, even faster but less accurate).");
+DEFINE_int32(body,                      1,              "Select 0 to disable body keypoint detection (e.g., for faster but less accurate face"
+                                                        " keypoint detection, custom hand detector, etc.), 1 (default) for body keypoint"
+                                                        " estimation, and 2 to disable its internal body pose estimation network but still"
+                                                        " still run the greedy association parsing algorithm");
+DEFINE_string(model_pose,               "BODY_25",      "Model to be used. E.g., `BODY_25` (fastest for CUDA version, most accurate, and includes"
+                                                        " foot keypoints), `COCO` (18 keypoints), `MPI` (15 keypoints, least accurate model but"
+                                                        " fastest on CPU), `MPI_4_layers` (15 keypoints, even faster but less accurate).");
 DEFINE_string(net_resolution,           "-1x368",       "Multiples of 16. If it is increased, the accuracy potentially increases. If it is"
                                                         " decreased, the speed increases. For maximum speed-accuracy balance, it should keep the"
                                                         " closest aspect ratio possible to the images or videos to be processed. Using `-1` in"
@@ -123,6 +126,8 @@ DEFINE_bool(part_candidates,            false,          "Also enable `write_json
                                                         " assembled into people). The empty body parts are filled with 0s. Program speed will"
                                                         " slightly decrease. Not required for OpenPose, enable it only if you intend to explicitly"
                                                         " use this information.");
+DEFINE_double(upsampling_ratio,         0.,             "Upsampling ratio between the `net_resolution` and the output net results. A value less"
+                                                        " or equal than 0 (default) will use the network default value (recommended).");
 // OpenPose Face
 DEFINE_bool(face,                       false,          "Enables face keypoint detection. It will share some parameters from the body pose, e.g."
                                                         " `model_folder`. Note that this will considerable slow down the performance and increse"
@@ -156,7 +161,8 @@ DEFINE_bool(3d,                         false,          "Running OpenPose 3-D re
                                                         " results. Note that it will only display 1 person. If multiple people is present, it will"
                                                         " fail.");
 DEFINE_int32(3d_min_views,              -1,             "Minimum number of views required to reconstruct each keypoint. By default (-1), it will"
-                                                        " require all the cameras to see the keypoint in order to reconstruct it.");
+                                                        " require max(2, min(4, #cameras-1)) cameras to see the keypoint in order to reconstruct"
+                                                        " it.");
 DEFINE_int32(3d_views,                  -1,             "Complementary option for `--image_dir` or `--video`. OpenPose will read as many images per"
                                                         " iteration, allowing tasks such as stereo camera processing (`--3d`). Note that"
                                                         " `--camera_parameter_path` must be set. OpenPose must find as many `xml` files in the"
@@ -171,17 +177,19 @@ DEFINE_int32(ik_threads,                0,              "Experimental, not avail
                                                         " keypoints to obtain 3-D joint angles. By default (0 threads), it is disabled. Increasing"
                                                         " the number of threads will increase the speed but also the global system latency.");
 // OpenPose Rendering
-DEFINE_int32(part_to_show,              0,              "Prediction channel to visualize (default: 0). 0 for all the body parts, 1-18 for each body"
-                                                        " part heat map, 19 for the background heat map, 20 for all the body part heat maps"
-                                                        " together, 21 for all the PAFs, 22-40 for each body part pair PAF.");
+DEFINE_int32(part_to_show,              0,              "Prediction channel to visualize: 0 (default) for all the body parts, 1 for the background"
+                                                        " heat map, 2 for the superposition of heatmaps, 3 for the superposition of PAFs,"
+                                                        " 4-(4+#keypoints) for each body part heat map, the following ones for each body part pair"
+                                                        " PAF.");
 DEFINE_bool(disable_blending,           false,          "If enabled, it will render the results (keypoint skeletons or heatmaps) on a black"
                                                         " background, instead of being rendered into the original image. Related: `part_to_show`,"
                                                         " `alpha_pose`, and `alpha_pose`.");
 // OpenPose Rendering Pose
 DEFINE_double(render_threshold,         0.05,           "Only estimated keypoints whose score confidences are higher than this threshold will be"
-                                                        " rendered. Generally, a high threshold (> 0.5) will only render very clear body parts;"
-                                                        " while small thresholds (~0.1) will also output guessed and occluded keypoints, but also"
-                                                        " more false positives (i.e., wrong detections).");
+                                                        " rendered. Note: Rendered refers only to visual display in the OpenPose basic GUI, not in"
+                                                        " the saved results. Generally, a high threshold (> 0.5) will only render very clear body"
+                                                        " parts; while small thresholds (~0.1) will also output guessed and occluded keypoints,"
+                                                        " but also more false positives (i.e., wrong detections).");
 DEFINE_int32(render_pose,               -1,             "Set to 0 for no rendering, 1 for CPU rendering (slightly faster), and 2 for GPU rendering"
                                                         " (slower but greater functionality, e.g., `alpha_X` flags). If -1, it will pick CPU if"
                                                         " CPU_ONLY is enabled, or GPU if CUDA is enabled. If rendering is enabled, it will render"
@@ -239,15 +247,18 @@ DEFINE_string(write_video_3d,           "",             "Analogous to `--write_v
 DEFINE_string(write_video_adam,         "",             "Experimental, not available yet. Analogous to `--write_video`, but applied to Adam model.");
 DEFINE_string(write_json,               "",             "Directory to write OpenPose output in JSON format. It includes body, hand, and face pose"
                                                         " keypoints (2-D and 3-D), as well as pose candidates (if `--part_candidates` enabled).");
-DEFINE_string(write_coco_json,          "",             "Full file path to write people pose data with JSON COCO validation format.");
-DEFINE_string(write_coco_foot_json,     "",             "Full file path to write people foot pose data with JSON COCO validation format.");
-DEFINE_int32(write_coco_json_variant,   0,             "Currently, this option is experimental and only makes effect on car JSON generation. It"
+DEFINE_string(write_coco_json,          "",             "Full file path to write people pose data with JSON COCO validation format. If foot, face,"
+                                                        " hands, etc. JSON is also desired (`--write_coco_json_variants`), they are saved with"
+                                                        " different file name suffix.");
+DEFINE_int32(write_coco_json_variants,  1,              "Add 1 for body, add 2 for foot, 4 for face, and/or 8 for hands. Use 0 to use all the"
+                                                        " possible candidates. E.g., 7 would mean body+foot+face COCO JSON.");
+DEFINE_int32(write_coco_json_variant,   0,              "Currently, this option is experimental and only makes effect on car JSON generation. It"
                                                         " selects the COCO variant for cocoJsonSaver.");
 DEFINE_string(write_heatmaps,           "",             "Directory to write body pose heatmaps in PNG format. At least 1 `add_heatmaps_X` flag"
                                                         " must be enabled.");
 DEFINE_string(write_heatmaps_format,    "png",          "File extension and format for `write_heatmaps`, analogous to `write_images_format`."
                                                         " For lossless compression, recommended `png` for integer `heatmaps_scale` and `float` for"
-                                                        " floating values.");
+                                                        " floating values. See `doc/output.md` for more details.");
 DEFINE_string(write_keypoint,           "",             "(Deprecated, use `write_json`) Directory to write the people pose keypoint data. Set format"
                                                         " with `write_keypoint_format`.");
 DEFINE_string(write_keypoint_format,    "yml",          "(Deprecated, use `write_json`) File extension and format for `write_keypoint`: json, xml,"

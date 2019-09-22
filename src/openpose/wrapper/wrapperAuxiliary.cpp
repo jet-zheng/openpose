@@ -58,7 +58,6 @@ namespace op
                     !wrapperStructOutput.writeImages.empty() || !wrapperStructOutput.writeVideo.empty()
                         || !wrapperStructOutput.writeKeypoint.empty() || !wrapperStructOutput.writeJson.empty()
                         || !wrapperStructOutput.writeCocoJson.empty() || !wrapperStructOutput.writeHeatMaps.empty()
-                        || !wrapperStructOutput.writeCocoFootJson.empty()
                 );
                 const auto savingCvOutput = (
                     !wrapperStructOutput.writeImages.empty() || !wrapperStructOutput.writeVideo.empty()
@@ -103,12 +102,14 @@ namespace op
                 }
             }
             if (!wrapperStructOutput.writeVideo.empty() && producerSharedPtr == nullptr)
-                error("Writting video is only available if the OpenPose producer is used (i.e."
-                      " producerSharedPtr cannot be a nullptr).",
-                      __LINE__, __FUNCTION__, __FILE__);
-            if (!wrapperStructPose.enable && !wrapperStructFace.enable && !wrapperStructHand.enable)
+                error("Writting video (`--write_video`) is only available if the OpenPose producer is used (i.e."
+                      " producerSharedPtr cannot be a nullptr). Otherwise, OpenPose would not know the frame rate"
+                      " of that output video nor whether all the images maintain the same resolution. You might"
+                      " use `--write_images` instead.", __LINE__, __FUNCTION__, __FILE__);
+            if (wrapperStructPose.poseMode == PoseMode::Disabled && !wrapperStructFace.enable
+                && !wrapperStructHand.enable)
                 error("Body, face, and hand keypoint detectors are disabled. You must enable at least one (i.e,"
-                      " unselect `--body_disable`, select `--face`, or select `--hand`.",
+                      " unselect `--body 0`, select `--face`, or select `--hand`.",
                       __LINE__, __FUNCTION__, __FILE__);
             const auto ownDetectorProvided = (wrapperStructFace.detector == Detector::Provided
                                               || wrapperStructHand.detector == Detector::Provided);
@@ -122,11 +123,11 @@ namespace op
                       " `examples/tutorial_api_cpp/` examples, or change the value of `--face_detector` and/or"
                       " `--hand_detector`.", __LINE__, __FUNCTION__, __FILE__);
             // Warning
-            if (ownDetectorProvided && wrapperStructPose.enable)
+            if (ownDetectorProvided && wrapperStructPose.poseMode != PoseMode::Disabled)
                 log("Warning: Body keypoint estimation is enabled while you have also selected to provide your own"
                     " face and/or hand rectangle detections (`face_detector 2` and/or `hand_detector 2`). Therefore,"
                     " OpenPose will not detect face and/or hand keypoints based on the body keypoints. Are you sure"
-                    " you want to keep enabled the body keypoint detector? (disable it with `--body_disable`).",
+                    " you want to keep enabled the body keypoint detector? (disable it with `--body 0`).",
                     Priority::High);
             // If 3-D module, 1 person is the maximum
             if (wrapperStructExtra.reconstruct3d && wrapperStructPose.numberPeopleMax != 1)
@@ -171,12 +172,10 @@ namespace op
             #endif
             #ifndef USE_CUDA
                 log("---------------------------------- WARNING ----------------------------------\n"
-                    "We have introduced an additional boost in accuracy of about 0.5% with respect to the official"
-                    " OpenPose 1.4.0 (using default settings). Currently, this increase is only applicable to CUDA"
-                    " version, but will eventually be ported to CPU and OpenCL versions. Therefore, CPU and OpenCL"
-                    " results might vary. Nevertheless, this accuracy boost is almost insignificant so CPU and"
-                    " OpenCL versions can be safely used, they will simply provide the exact same accuracy than"
-                    " OpenPose 1.4.0."
+                    "We have introduced an additional boost in accuracy in the CUDA version of about 0.2% with"
+                    " respect to the CPU/OpenCL versions. We will not port this to CPU given the considerable slow"
+                    " down in speed it would add to it. Nevertheless, this accuracy boost is almost insignificant so"
+                    " the CPU/OpenCL versions can be safely used."
                     "\n-------------------------------- END WARNING --------------------------------",
                     Priority::High);
             #endif

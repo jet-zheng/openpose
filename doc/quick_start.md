@@ -3,18 +3,28 @@ OpenPose - Quick Start
 
 ## Contents
 1. [Quick Start](#quick-start)
-    1. [Running on Video](#running-on-video)
-    2. [Running on Webcam](#running-on-webcam)
-    3. [Running on Images](#running-on-images)
-    4. [Maximum Accuracy Configuration](#maximum-accuracy-configuration)
-    5. [3-D Reconstruction](#3-d-reconstruction)
-    6. [Tracking](#tracking)
+    1. [BODY_25 vs. COCO vs. MPI Models](#body-25-vs-coco-vs-mpi-models)
+    2. [Running on Video](#running-on-video)
+    3. [Running on Webcam](#running-on-webcam)
+    4. [Running on Images](#running-on-images)
+    5. [Maximum Accuracy Configuration](#maximum-accuracy-configuration)
+    6. [3-D Reconstruction](#3-d-reconstruction)
+    7. [Tracking](#tracking)
 2. [Expected Visual Results](#expected-visual-results)
 
 
 
 ## Quick Start
-Check that the library is working properly by running any of the following commands. Make sure that you are in the **root directory of the project** (i.e., in the OpenPose folder, not inside `build/` nor `windows/` nor `bin/`). In addition, `examples/media/video.avi` and `examples/media` do exist, no need to change the paths.
+Check that the library is working properly by running any of the following commands on any command-line interface program. In Ubuntu, Mac, and other Unix systems, use any command-line interface, such as `Terminal` or `Terminator`. In Windows, open the `PowerShell` (recommended) or Windows Command Prompt (CMD). They can be open by pressing the Windows button + X, and then A. Feel free to watch any Youtube video tutorial if you are not familiar with these non-GUI tools. Make sure that you are in the **root directory of the project** (i.e., in the OpenPose folder, not inside `build/` nor `windows/` nor `bin/`). In addition, `examples/media/video.avi` and `examples/media` do exist, no need to change the paths.
+
+
+
+### BODY_25 vs. COCO vs. MPI Models
+The BODY_25 model (`--model_pose BODY_25`) includes both body and foot keypoints and it is based in [OpenPose: Realtime Multi-Person 2D Pose Estimation using Part Affinity Fields](https://arxiv.org/abs/1812.08008). COCO and MPI models are slower, less accurate, and do not contain foot keypoints. They are based in our older paper [Realtime Multi-Person 2D Pose Estimation using Part Affinity Fields](https://arxiv.org/abs/1611.08050). We highly recommend only using the BODY_25 model.
+
+There is an exception, for CPU version, the COCO and MPI models seems to be faster. Accuracy is still better for the BODY_25 model.
+
+
 
 ### Running on Video
 ```
@@ -107,6 +117,12 @@ build\x64\Release\OpenPoseDemo.exe --net_resolution "1312x736" --scale_number 4 
 build\x64\Release\OpenPoseDemo.exe --net_resolution "1312x736" --scale_number 4 --scale_gap 0.25 --hand --hand_scale_number 6 --hand_scale_range 0.4 --face
 ```
 
+If you want to increase the accuracy value metric on COCO, while harming the qualitative accuracy, add the flag `--maximize_positives`. It reduces the thresholds to accept a person candidate. It highly increases both false and true positives. I.e., it maximizes average recall but could harm average precision. Our experience is that it looks much worse visually, but it improves the COCO accuracy numbers, so use it at your own risk.
+
+In addition, our paper numbers are not based on the current models that have been released. We released our best model at the time but later found a better one. But given that the accuracy difference is less than 2%, we did not want to release yet another model to avoid confusion for the users (otherwise there would be more than 10 models released at this point). We will release a new one every time a major improvement is achieved.
+
+If you are operating on Ubuntu, you can check the experimental scripts that we use to test our accuracy (we do not officially support it, i.e., we will not answer questions about it, as well as it might change it continuously), they are placed in `openpose/scripts/tests/`, called `pose_accuracy_coco_test_dev.sh` and `pose_accuracy_coco_val.sh`.
+
 
 
 ### 3-D Reconstruction
@@ -159,11 +175,13 @@ build\x64\Release\OpenPoseDemo.exe --flir_camera --3d --number_people_max 1 --fa
 ./build/examples/openpose/openpose.bin --image_dir output_folder_path/ --3d_views 3 --3d --number_people_max 1 --output_resolution {desired_output_resolution}
 ```
 
-5. Reconstruction when at least n visible views
+5. Reconstruction when the keypoint is visible in at least `x` camera views out of the total `n` cameras
 ```
 # Ubuntu and Mac (same flags for Windows version)
-# Assuming >=2 cameras and reconstruction when at least 2 visible views
+# Reconstruction when a keypoint is visible in at least 2 camera views (assuming `n` >= 2)
 ./build/examples/openpose/openpose.bin --flir_camera --3d --number_people_max 1 --3d_min_views 2 --output_resolution {desired_output_resolution}
+# Reconstruction when a keypoint is visible in at least max(2, min(4, n-1)) camera views
+./build/examples/openpose/openpose.bin --flir_camera --3d --number_people_max 1 --output_resolution {desired_output_resolution}
 ```
 
 
